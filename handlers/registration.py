@@ -49,7 +49,6 @@ async def take_phone_number(message: types.Contact, state: FSMContext):
         async with state.proxy() as data:
             data['number'] = str(message.contact.phone_number)
             data['id'] = str(message.contact.user_id)
-            print(str(data))
             #Сохранение пользователя в БД
         await db_scripts.add_user(state)
         await state.finish()
