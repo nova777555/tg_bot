@@ -3,10 +3,9 @@ from aiogram import types, Dispatcher
 from create_bot import bot, dp
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
-from data_bases.db_scripts import add_user
 from keyboards import kb_reg, kb_main_menu
 from aiogram.types import ReplyKeyboardRemove
-from data_bases import db_scripts
+from data_base import db_scripts
 from handlers import main_h
 
 #Класс состояний - последовательность регистрации

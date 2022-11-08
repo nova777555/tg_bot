@@ -2,12 +2,14 @@ from aiogram import types, Dispatcher
 from create_bot import bot, dp
 from aiogram.dispatcher import FSMContext
 from aiogram.types import ReplyKeyboardRemove
-from data_bases import db_scripts
+from data_base import db_scripts
 from aiogram.dispatcher.filters import Text
 import emoji
 from aiogram.types import  InlineKeyboardMarkup, InlineKeyboardButton
 from keyboards import kb_main_menu, kb_new_appointment1, kb_new_appointment2, choose_day_kb, choose_time_kb, confirm, appointments_kb
+from keyboards.options import make_kb_option
 from aiogram.dispatcher.filters.state import State, StatesGroup
+import datetime
 
 #Класс состояний - для сохранения введенных симптомов или команд
 class FSMmain(StatesGroup):
@@ -20,6 +22,7 @@ class FSMmain(StatesGroup):
     symptoms = State()
     command = State()
     my_appointments = State()
+    options = State()
 
 #Новая запись к врачу, переход к выбору: самостоятельно или через распознование симптомов
 async def new_appointment(message: types.Message):
@@ -30,7 +33,12 @@ async def new_appointment(message: types.Message):
 async def my_appointments(message: types.Message):
     await FSMmain.my_appointments.set()
     await bot.send_message(message.from_user.id, text = 'Ваши записи:', reply_markup = appointments_kb.kb_appointment)
-    appointments = db_scripts.get_appointments(message.from_user.id)
+    now = datetime.datetime.now()
+    H = now.strftime('%H')
+    M = now.strftime('%M')
+    t = int(H)*2+int(M)/30.0
+    date = '\''+now.strftime('%Y')+'-'+now.strftime('%m')+'-'+now.strftime('%d')+'\''
+    appointments = db_scripts.get_appointments(message.from_user.id,t,date)
     for app in appointments:
         data = list(*db_scripts.get_info_appointment(app[0]))
         doctor = list(*db_scripts.get_info_doctor(data[2]))
@@ -135,6 +143,26 @@ async def back_to_main_menu(message: types.Message):
     await message.delete()
     await bot.send_message(message.from_user.id, text = 'Главное меню', reply_markup = kb_main_menu)
 
+#Настройки
+async def options(message: types.Message):
+    await FSMmain.options.set()
+    await message.delete()
+    await bot.send_message(message.from_user.id, text = 'Настройки', reply_markup = make_kb_option(message.from_user.id))
+
+#Отключение уведомлений
+async def notification_turn_off(message: types.Message):
+    await db_scripts.update_notification(message.from_user.id,0)
+    await FSMmain.main_menu.set()
+    await message.delete()
+    await bot.send_message(message.from_user.id, text = 'Настройки обновлены', reply_markup = kb_main_menu)
+
+#Включение уведомлений
+async def notification_turn_on(message: types.Message):
+    await db_scripts.update_notification(message.from_user.id,1)
+    await FSMmain.main_menu.set()
+    await message.delete()
+    await bot.send_message(message.from_user.id, text = 'Настройки обновлены', reply_markup = kb_main_menu)
+
 #Регистрация хендлеров
 def register_handlers_menu(dp : Dispatcher):
     dp.register_message_handler(back_to_main_menu, commands = ['menu'])
@@ -153,5 +181,8 @@ def register_handlers_menu(dp : Dispatcher):
     dp.register_callback_query_handler(confirm_appointment, Text(startswith = 'choose_time_'), state = FSMmain.choose_time)
     dp.register_callback_query_handler(change_page_choosing_day, Text(startswith = 'page_'), state = FSMmain.choose_day)
     dp.register_message_handler(choose_doctor_byyourself, lambda message: message.text == 'Я знаю к кому записаться ' + emoji.emojize(":white_check_mark:", language='alias'), state = FSMmain.new_appointment)
+    dp.register_message_handler(options, lambda message: message.text == 'Настройки ' + emoji.emojize(":wrench:", language='alias'), state = FSMmain.main_menu)
+    dp.register_message_handler(notification_turn_off, lambda message: message.text == 'Отключить уведомления ' + emoji.emojize(":mute:", language='alias'), state = FSMmain.options)
+    dp.register_message_handler(notification_turn_on, lambda message: message.text == 'Включить уведомления ' + emoji.emojize(":sound:", language='alias'), state = FSMmain.options)
 
 
