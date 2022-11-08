@@ -9,4 +9,5 @@ def make_kb_option(id):
     else:
         b = KeyboardButton('Включить уведомления ' + emoji.emojize(":sound:", language='alias'))
     kb.add(b)
+    kb.add(KeyboardButton('Назад ' + emoji.emojize(":arrow_left:", language='alias')))
     return kb
