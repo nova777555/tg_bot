@@ -1,6 +1,9 @@
 from aiogram.utils import executor
 from create_bot import dp
-from data_bases import db_scripts
+from data_base import db_scripts
+from notifications.notifications import send_notifications
+import asyncio
+from notifications.notifications import scheduler
 
 #Регистрация всех обработчиков
 #Важен порядок handler'ов
@@ -15,6 +18,7 @@ forSasha.register_handlers_forsasha(dp)
 async def on_start(_):
     print('Bot is online')
     db_scripts.db_load()
+    asyncio.create_task(scheduler())
     # global timetable
     # timetable = [
     #     [[18,31],[-1,-1],[18,31],[-1,-1],[18,31],[-1,-1],[-1,-1]],
