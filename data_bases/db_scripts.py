@@ -128,6 +128,13 @@ def get_info_doctor(id):
     cur.execute(f'SELECT fio, prof FROM doctors WHERE id = {id}')
     return list(cur.fetchall())
 
+#Получение списка telegram id докторов
+def get_doctors_id():
+    base = sq.connect('bd.db')
+    cur = base.cursor()
+    cur.execute(f'SELECT tg_id FROM doctors')
+    return list(cur.fetchall())
+
 #Получение записи по id
 def get_info_appointment(id):
     base = sq.connect('bd.db')
