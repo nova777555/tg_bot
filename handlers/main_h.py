@@ -175,6 +175,7 @@ def register_handlers_menu(dp : Dispatcher):
     dp.register_message_handler(back_to_main_menu, lambda message: message.text == 'Назад' + emoji.emojize(":arrow_left:", language='alias'), state = FSMmain.my_appointments)
     dp.register_message_handler(succes_confirm, lambda message: message.text == 'Все верно ' + emoji.emojize(":white_check_mark:", language='alias'), state = FSMmain.confirm)
     dp.register_message_handler(back_to_main_menu, lambda message: message.text == 'Назад ' + emoji.emojize(":arrow_left:", language='alias'), state = FSMmain.new_appointment)
+    dp.register_message_handler(back_to_main_menu, lambda message: message.text == 'Назад ' + emoji.emojize(":arrow_left:", language='alias'), state = FSMmain.options)
     dp.register_callback_query_handler(back_to_new_appointment, text = 'back', state = FSMmain.choose_doctor_by_yourself)
     dp.register_callback_query_handler(back_to_choose_doctor_by_youself, text = 'back', state = FSMmain.choose_day)
     dp.register_callback_query_handler(back_to_choose_day, Text(startswith = 'back_'), state = FSMmain.choose_time)
