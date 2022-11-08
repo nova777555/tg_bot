@@ -51,7 +51,8 @@ def new_appointments_timetable(a):
 #Добавление нового пользвателя в БД в таблицу users
 async def add_user(state):
     async with state.proxy() as data:
-        cur.execute('INSERT INTO users VALUES (?, ?, ?, ?, ?)', tuple(data.values()))
+        data['not'] = 1
+        cur.execute('INSERT INTO users VALUES (?, ?, ?, ?, ?, ?)', tuple(data.values()))
         base.commit()
 
 #Оформление записи
@@ -71,6 +72,12 @@ async def cancel_appointment(id):
     cur.execute(f'UPDATE appointments SET patient = NULL WHERE id = {id}')
     base.commit()
 
+#Изменение настройки уведомлений
+async def update_notification(id, notification):
+    base = sq.connect('bd.db')
+    cur = base.cursor()
+    cur.execute(f'UPDATE users SET notification = {notification} WHERE id = {id}')
+    base.commit()
 
 #Получение списка врачей
 def get_doctors():
@@ -79,19 +86,39 @@ def get_doctors():
     cur.execute('SELECT fio, prof FROM doctors')
     return cur.fetchall()
 
+#Получение списка завтрашних записей
+def get_appointments_tomorrow():
+    base = sq.connect('bd.db')
+    cur = base.cursor()
+    date = datetime.datetime.now()
+    DELTA = datetime.timedelta(
+        days=1
+    )
+    date += DELTA
+    date = '\''+date.strftime('%Y')+'-'+date.strftime('%m')+'-'+date.strftime('%d')+'\''
+    cur.execute(f'SELECT appointments.id FROM users, appointments WHERE users.notification = 1 AND appointments.date = {date} AND appointments.patient = users.id')
+    return cur.fetchall()
+
+#Получение статуса уведомлений
+def get_notification_status(id):
+    base = sq.connect('bd.db')
+    cur = base.cursor()
+    cur.execute(f'SELECT notification FROM users WHERE id = {id}')
+    return cur.fetchall()
+
 #Получение списка рабочих дней выбранного врача
 def get_days(id, page):
     base = sq.connect('bd.db')
     cur = base.cursor()
-    cur.execute('SELECT DISTINCT date, dayweek FROM appointments WHERE date > datetime(\'now\', \'start of day\') AND doctor = '+str(id))
+    cur.execute('SELECT DISTINCT date, dayweek FROM appointments WHERE date >= CURRENT_DATE AND doctor = '+str(id))
     return list(cur.fetchall())[(page-1)*10:page*10]
 
 #Получение списка свободных окон
-def get_times(id,date):
+def get_times(id,date,t):
     base = sq.connect('bd.db')
     cur = base.cursor()
     date = f'\'{date}\''
-    cur.execute(f'SELECT time FROM appointments WHERE doctor = {str(id)} AND patient IS NULL AND date = date({date})')
+    cur.execute(f'SELECT time FROM appointments WHERE doctor = {str(id)} AND patient IS NULL AND date = date({date}) AND time > {t}')
     return list(cur.fetchall())
 
 #Получение информации о докторе по id
@@ -109,9 +136,9 @@ def get_info_appointment(id):
     return list(cur.fetchall())
 
 #Поиск записей пациента
-def get_appointments(patient):
+def get_appointments(patient,t,date):
     base = sq.connect('bd.db')
     cur = base.cursor()
-    cur.execute(f'SELECT id FROM appointments WHERE patient = {patient}')
+    cur.execute(f'SELECT id FROM appointments WHERE patient = {patient} AND (date > {date} OR (DATE = {date} AND time > {t}))')
     return list(cur.fetchall())
 

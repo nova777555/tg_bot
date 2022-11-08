@@ -1,1 +1,1 @@
-from data_bases import db_scripts
+from data_base import db_scripts
