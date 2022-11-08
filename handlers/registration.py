@@ -3,8 +3,8 @@ from aiogram import types, Dispatcher
 from create_bot import bot, dp
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
-from keyboards import kb_reg, kb_main_menu
-from aiogram.types import ReplyKeyboardRemove
+from keyboards import kb_reg, kb_main_menu, kb_main_menu_admin
+from aiogram.types import ReplyKeyboardRemove, KeyboardButton
 from data_base import db_scripts
 from handlers import main_h
 
@@ -51,8 +51,11 @@ async def take_phone_number(message: types.Contact, state: FSMContext):
             #Сохранение пользователя в БД
         await db_scripts.add_user(state)
         await state.finish()
-        await bot.send_message(message.from_user.id,'Успешное завершение, благодарим за регистрацию!',reply_markup = kb_main_menu)
         await main_h.FSMmain.main_menu.set()
+        if str(message.from_user.id) in [str(a[0]) for a in list(db_scripts.get_doctors_id())]:
+            await bot.send_message(message.from_user.id,'Успешное завершение, благодарим за регистрацию!',reply_markup = kb_main_menu_admin)
+        else:
+            await bot.send_message(message.from_user.id,'Успешное завершение, благодарим за регистрацию!',reply_markup = kb_main_menu)
 
 #Регистрация обработчиков (хендлеров)
 def register_handlers_registration(dp : Dispatcher):
