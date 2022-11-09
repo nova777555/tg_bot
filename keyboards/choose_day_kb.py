@@ -1,10 +1,15 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from data_base import db_scripts
 import emoji
+import datetime
 
 def make_keyBoard(id,page):
     kb = InlineKeyboardMarkup(row_width = 2)
-    days = db_scripts.get_days(id,page)
+    now = datetime.datetime.now()
+    H = now.strftime('%H')
+    M = now.strftime('%M')
+    t = int(H)*2+int(M)/30.0
+    days = db_scripts.get_days(id,page,t)
     for day in days:
         kb.insert(InlineKeyboardButton(text = f"{day[0].split('-')[2]}.{day[0].split('-')[1]}({day[1]})", 
         callback_data = f'choose_day_{day[0]}_{id}'))
