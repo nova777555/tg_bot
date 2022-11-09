@@ -12,18 +12,23 @@ from keyboards.main_menu_admin import kb_main_menu_admin
 from aiogram.dispatcher.filters.state import State, StatesGroup
 import datetime
 
+#Количество страниц с выбором дней
+MAX_PAGE = 3
+
 #Класс состояний - для сохранения введенных симптомов или команд
 class FSMmain(StatesGroup):
     main_menu = State()
     confirm = State()
     new_appointment = State()
     choose_doctor_by_yourself = State()
+    choose_doctor_by_bot = State()
     choose_day = State()
     choose_time = State()
     symptoms = State()
     command = State()
     my_appointments = State()
     options = State()
+    sos = State()
 
 def time_to_h_m(time):
     h = int(time) // 2
@@ -57,10 +62,9 @@ async def my_appointments(message: types.Message):
 
 #Отмена записи
 async def cancel_appointment(callback: types.CallbackQuery):
-    await FSMmain.main_menu.set()
     await callback.message.delete()
     await db_scripts.cancel_appointment(int(callback.data.split('_')[1]))
-    await callback.message.answer('Запись успешно отменена', reply_markup = kb_main_menu)
+    await callback.message.answer('Запись успешно отменена')
     await callback.answer()
 
 #Выбор доктора самостоятельно
@@ -86,7 +90,7 @@ async def choose_nearest(callback: types.CallbackQuery, state: FSMContext):
     t = int(H)*2+int(M)/30.0
     doctor = list(*db_scripts.get_info_doctor(callback.data.split('_')[2]))
     async with state.proxy() as data:
-        data['date'] = list(db_scripts.get_days(callback.data.split('_')[2],1))[0][0]
+        data['date'] = list(db_scripts.get_days(callback.data.split('_')[2],1,t))[0][0]
         date = data['date'].split('-')
         data['time'] = list(db_scripts.get_times(callback.data.split('_')[2],data['date'],t))[0][0]
         data['id'] = callback.data.split('_')[2]
@@ -102,6 +106,12 @@ async def back_to_new_appointment(callback: types.CallbackQuery):
     await callback.message.delete()
     await callback.message.answer('Как вам удобнее подобрать специалиста?', reply_markup = kb_new_appointment1)
     await callback.answer()
+
+#Назад к варинтам выбора доктора
+async def back_to_new_appointment_bt(message: types.Message):
+    await FSMmain.new_appointment.set()
+    await message.delete()
+    await message.answer('Как вам удобнее подобрать специалиста?', reply_markup = kb_new_appointment1)
 
 #Назад к списку докторов
 async def back_to_choose_doctor_by_youself(callback: types.CallbackQuery):
@@ -129,7 +139,7 @@ async def choose_day(callback: types.CallbackQuery):
     await FSMmain.choose_day.set()
     page = 1
     await callback.message.delete()
-    await callback.message.answer('Выберете удобный день для посещения', reply_markup = choose_day_kb.make_keyBoard(int(callback.data.split('_')[2]),page))
+    await callback.message.answer(f'Выберете удобный день для посещения (Страница {page} из {MAX_PAGE})', reply_markup = choose_day_kb.make_keyBoard(int(callback.data.split('_')[2]),page))
     await callback.answer()
 
 #Выбор времени посещения
@@ -161,8 +171,8 @@ async def change_page_choosing_day(callback: types.CallbackQuery):
     page = int(callback.data.split('_')[1])
     await callback.message.delete()
     if page < 1 : page = 1
-    if page > 3 : page = 3
-    await callback.message.answer('Выберете удобный день для посещения', reply_markup = choose_day_kb.make_keyBoard(int(callback.data.split('_')[2]),page))
+    if page > MAX_PAGE : page = MAX_PAGE
+    await callback.message.answer(f'Выберете удобный день для посещения (Страница {page} из {MAX_PAGE})', reply_markup = choose_day_kb.make_keyBoard(int(callback.data.split('_')[2]),page))
     await callback.answer()
 
 #Назад в главное меню
@@ -206,6 +216,25 @@ async def get_timetable(message: types.Message):
     await message.delete()
     await bot.send_message(message.from_user.id, text = 'Ваше распсиание:', reply_markup = kb_main_menu_admin)
 
+#Связь с дежурным врачом
+async def sos(message: types.Message):
+    await FSMmain.sos.set()
+    await message.delete()
+    await bot.send_message(message.from_user.id, text = 'Информация для связи с врачом:', reply_markup = appointments_kb.kb_appointment)
+    await bot.send_contact(message.from_user.id, '+79025102007', 'Горшокова', 'Ирина')
+
+#Получение симптомов от пользователя, начало подбора доктора
+async def choose_doctor_by_bot(message: types.Message):
+    await FSMmain.symptoms.set()
+    await message.delete()
+    await bot.send_message(message.from_user.id, text = 'Введите, пожалуйста, через запятую ваши жалобы:', reply_markup = appointments_kb.kb_appointment)
+
+#Сохранение введенных симптомов, их обработка
+async def take_symptoms(message: types.Message):
+    # await FSMmain.choose_doctor_by_bot.set()
+    await message.delete()
+    print(message.text)
+
 #Регистрация хендлеров
 def register_handlers_menu(dp : Dispatcher):
     dp.register_message_handler(back_to_main_menu, commands = ['menu'])
@@ -226,8 +255,13 @@ def register_handlers_menu(dp : Dispatcher):
     dp.register_callback_query_handler(confirm_appointment, Text(startswith = 'choose_time_'), state = FSMmain.choose_time)
     dp.register_callback_query_handler(change_page_choosing_day, Text(startswith = 'page_'), state = FSMmain.choose_day)
     dp.register_message_handler(choose_doctor_byyourself, lambda message: message.text == 'Я знаю к кому записаться ' + emoji.emojize(":white_check_mark:", language='alias'), state = FSMmain.new_appointment)
+    dp.register_message_handler(choose_doctor_by_bot, lambda message: message.text == 'Мне нужна помощь с выбором врача' + emoji.emojize(":question:", language='alias'), state = FSMmain.new_appointment)
     dp.register_message_handler(options, lambda message: message.text == 'Настройки ' + emoji.emojize(":wrench:", language='alias'), state = FSMmain.main_menu)
     dp.register_message_handler(notification_turn_off, lambda message: message.text == 'Отключить уведомления ' + emoji.emojize(":mute:", language='alias'), state = FSMmain.options)
     dp.register_message_handler(notification_turn_on, lambda message: message.text == 'Включить уведомления ' + emoji.emojize(":sound:", language='alias'), state = FSMmain.options)
     dp.register_message_handler(get_timetable, lambda message: message.text == 'Моё расписание', state = FSMmain.main_menu)
+    dp.register_message_handler(sos, lambda message: message.text == 'Связь с дежурным врачом ' + emoji.emojize(":phone:", language='alias'), state = FSMmain.main_menu)
+    dp.register_message_handler(back_to_main_menu, lambda message: message.text == 'Назад' + emoji.emojize(":arrow_left:", language='alias'), state = FSMmain.sos)
+    dp.register_message_handler(back_to_new_appointment_bt, lambda message: message.text == 'Назад' + emoji.emojize(":arrow_left:", language='alias'), state = FSMmain.symptoms)
+    dp.register_message_handler(take_symptoms, state = FSMmain.symptoms)
 
