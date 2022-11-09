@@ -52,7 +52,7 @@ def new_appointments_timetable(a):
 async def add_user(state):
     async with state.proxy() as data:
         data['not'] = 1
-        cur.execute('INSERT INTO users VALUES (?, ?, ?, ?, ?, ?)', tuple(data.values()))
+        cur.execute('INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?)', tuple(data.values()))
         base.commit()
 
 #Оформление записи
@@ -107,18 +107,22 @@ def get_notification_status(id):
     return cur.fetchall()
 
 #Получение списка рабочих дней выбранного врача
-def get_days(id, page):
+def get_days(id, page, t):
     base = sq.connect('bd.db')
     cur = base.cursor()
-    cur.execute('SELECT DISTINCT date, dayweek FROM appointments WHERE date >= CURRENT_DATE AND doctor = '+str(id))
+    cur.execute(f'SELECT DISTINCT date, dayweek FROM appointments WHERE patient IS NULL AND doctor = {str(id)} AND ( (date = CURRENT_DATE AND time > {t}) OR date > CURRENT_DATE)')
     return list(cur.fetchall())[(page-1)*10:page*10]
 
 #Получение списка свободных окон
 def get_times(id,date,t):
     base = sq.connect('bd.db')
     cur = base.cursor()
-    date = f'\'{date}\''
-    cur.execute(f'SELECT time FROM appointments WHERE doctor = {str(id)} AND patient IS NULL AND date = date({date}) AND time > {t}')
+    datedb = f'\'{date}\''
+    dateif = datetime.date(int(date.split('-')[0]),int(date.split('-')[1]),int(date.split('-')[2]))
+    if str(date) == str(datetime.date.today().isoformat()):
+        cur.execute(f'SELECT time FROM appointments WHERE doctor = {str(id)} AND patient IS NULL AND date = date({datedb}) AND time > {t}')
+    else:
+        cur.execute(f'SELECT time FROM appointments WHERE doctor = {str(id)} AND patient IS NULL AND date = date({datedb})')
     return list(cur.fetchall())
 
 #Получение информации о докторе по id
