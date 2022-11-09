@@ -1,4 +1,5 @@
 SELECT appointments.date AS Запись,
+	   CAST(time / 2 AS STRING) || ':' || IIF(time % 2 = 0, '00', '30') AS Время,
 	   name || ' ' || surname AS Пациент,
 	   IIF(sex = 1, 'Мужчина', 'Женщина') AS Пол,
 	   DATE() - birthday AS Возраст,
