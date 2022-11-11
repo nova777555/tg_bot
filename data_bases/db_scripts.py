@@ -153,3 +153,10 @@ def get_appointments(patient,t,date):
     cur.execute(f'SELECT id FROM appointments WHERE patient = {patient} AND (date > {date} OR (DATE = {date} AND time > {t}))')
     return list(cur.fetchall())
 
+#Получение пациента по id
+def find_user(id):
+    base = sq.connect('bd.db')
+    cur = base.cursor()
+    cur.execute(f'SELECT id FROM users WHERE id = {id}')
+    return list(cur.fetchall())
+
