@@ -124,7 +124,7 @@ async def back_to_choose_doctor_by_youself(callback: types.CallbackQuery):
 async def back_to_choose_day(callback: types.CallbackQuery):
     await FSMmain.choose_day.set()
     await callback.message.delete()
-    await callback.message.answer('Выберете удобный день для посещения', reply_markup = choose_day_kb.make_keyBoard(int(callback.data.split('_')[1]),1))
+    await callback.message.answer(f'Выберете удобный день для посещения (Страница 1 из {MAX_PAGE})', reply_markup = choose_day_kb.make_keyBoard(int(callback.data.split('_')[1]),1))
     await callback.answer()
 
 #Назад к списку окон
@@ -237,7 +237,6 @@ async def take_symptoms(message: types.Message):
 
 #Регистрация хендлеров
 def register_handlers_menu(dp : Dispatcher):
-    dp.register_message_handler(back_to_main_menu, commands = ['menu'])
     dp.register_callback_query_handler(choose_day, Text(startswith = 'choose_doctor'), state = FSMmain.choose_doctor_by_yourself)
     dp.register_callback_query_handler(cancel_appointment, Text(startswith = 'cancel_'), state = FSMmain.my_appointments)
     dp.register_callback_query_handler(choose_time, Text(startswith = 'choose_day'), state = FSMmain.choose_day)

@@ -8,6 +8,7 @@ from aiogram.types import ReplyKeyboardRemove, KeyboardButton
 from data_base import db_scripts
 from handlers import main_h
 import emoji
+import re
 
 #Класс состояний - последовательность регистрации
 class FSMregistration(StatesGroup):
@@ -20,23 +21,38 @@ class FSMregistration(StatesGroup):
 
 #Начало регистрации - приветствие
 async def command_start(message : types.Message):
-    await FSMregistration.name.set()
-    await bot.send_message(message.from_user.id,'Мы рады приветствовать вас в нашем боте! \n Для доступа к функционалу необходима регистрация')
-    await bot.send_message(message.from_user.id,'Введите, пожалуйста, ваше имя:')
+    if len(db_scripts.find_user(message.from_user.id)) == 1:
+        await main_h.FSMmain.main_menu.set()
+        if str(message.from_user.id) in [str(a[0]) for a in list(db_scripts.get_doctors_id())]:
+            await bot.send_message(message.from_user.id, 'Что умеет давнный бот? \n По первой кнопке вы можете записаться к врачу в удобный для вас день и подходящее время. \n При этом, если вы не значете, к какому специалисту обратиться - бот сможет вам помочь: достаточно будет выбрать соответствующую кнопку и перечислить свои жалобы \n \n Также по кнопке \'Мои записи\' вы сможете ознакомиться с вашими совершенными записями, по кнопке \'Связь с дежурным врачом\' вы сможете получить его контакт и позвонить в случае необходимости \n Также вы можете не пользоваться кнопками и написать ваш запрос вручную боту, находясь в главном меню, например \'Запишите меня к терапевту на ближайшее время\''
+            ,reply_markup = kb_main_menu_admin)
+        else:
+            await bot.send_message(message.from_user.id, 'Что умеет давнный бот? \n По первой кнопке вы можете записаться к врачу в удобный для вас день и подходящее время. \n При этом, если вы не значете, к какому специалисту обратиться - бот сможет вам помочь: достаточно будет выбрать соответствующую кнопку и перечислить свои жалобы \n \n Также по кнопке \'Мои записи\' вы сможете ознакомиться с вашими совершенными записями, по кнопке \'Связь с дежурным врачом\' вы сможете получить его контакт и позвонить в случае необходимости \n Также вы можете не пользоваться кнопками и написать ваш запрос вручную боту, находясь в главном меню, например \'Запишите меня к терапевту на ближайшее время\''
+            ,reply_markup = kb_main_menu)
+    else: 
+        await FSMregistration.name.set()
+        await bot.send_message(message.from_user.id,'Мы рады приветствовать вас в нашем боте! \n Для доступа к функционалу необходима регистрация')
+        await bot.send_message(message.from_user.id,'Введите, пожалуйста, ваше имя:')
 
 #Получаем имя
 async def take_name(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        data['name'] = message.text
-    await FSMregistration.next()
-    await bot.send_message(message.from_user.id,'Введите фамилию:')
+    if message.text == re.sub(r'[^\w\s]','', message.text): 
+        async  with state.proxy() as data:
+            data['name'] = message.text
+        await FSMregistration.next()
+        await bot.send_message(message.from_user.id,'Введите фамилию:')
+    else:
+        await bot.send_message(message.from_user.id,'Пожалуйста, проверьте правильность ввденный данных')
 
 #Получаем фамилию
 async def take_surname(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        data['surname'] = message.text
-    await FSMregistration.next()
-    await bot.send_message(message.from_user.id,'Выберите ваш пол:', reply_markup = kb_choose_sex)
+    if message.text == re.sub(r'[^\w\s]','', message.text): 
+        async with state.proxy() as data:
+            data['surname'] = message.text
+        await FSMregistration.next()
+        await bot.send_message(message.from_user.id,'Выберите ваш пол:', reply_markup = kb_choose_sex)
+    else:
+        await bot.send_message(message.from_user.id,'Пожалуйста, проверьте правильность ввденный данных') 
 
 #Получаем пол, 1=Мужской, 2=Женский
 async def take_sex(message: types.Message, state: FSMContext):
