@@ -110,7 +110,7 @@ def get_notification_status(id):
 def get_days(id, page, t):
     base = sq.connect('bd.db')
     cur = base.cursor()
-    cur.execute(f'SELECT DISTINCT date, dayweek FROM appointments WHERE patient IS NULL AND doctor = {str(id)} AND ( (date = CURRENT_DATE AND time > {t}) OR date > CURRENT_DATE)')
+    cur.execute(f'SELECT DISTINCT date, dayweek FROM appointments WHERE patient IS NULL AND doctor = {str(id)} AND ( (date = CURRENT_DATE AND time > {t}) OR date > CURRENT_DATE) ORDER BY date')
     return list(cur.fetchall())[(page-1)*10:page*10]
 
 #Получение списка свободных окон
