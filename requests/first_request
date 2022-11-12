@@ -1,0 +1,18 @@
+SELECT  CASE 
+            WHEN strftime('%w', appointments.date) = '1' THEN appointments.date || " (Понедельник)"
+            WHEN strftime('%w', appointments.date) = '2' THEN appointments.date || " (Вторник)" 
+            WHEN strftime('%w', appointments.date) = '3' THEN appointments.date || " (Среда)" 
+            WHEN strftime('%w', appointments.date) = '4' THEN appointments.date || " (Четверг)" 
+            WHEN strftime('%w', appointments.date) = '5' THEN appointments.date || " (Пятница)" 
+            WHEN strftime('%w', appointments.date) = '6' THEN appointments.date || " (Суббота)" 
+            ELSE "Воскресенье"
+            END AS День,
+	   CAST(time / 2 AS STRING) || ':' || IIF(time % 2 = 0, '00', '30') AS Время,
+	   name || ' ' || surname AS Пациент,
+	   IIF(sex = 1, 'Мужчина', 'Женщина') AS Пол,
+	   DATE() - birthday AS Возраст,
+	   simptoms AS Симптомы,
+	   number AS Номер,
+	   polis AS Полис
+FROM appointments INNER JOIN users ON appointments.patient = users.id
+WHERE patient IS NOT NULL
