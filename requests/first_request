@@ -6,7 +6,7 @@ SELECT  CASE
             WHEN strftime('%w', appointments.date) = '5' THEN appointments.date || " (Пятница)" 
             WHEN strftime('%w', appointments.date) = '6' THEN appointments.date || " (Суббота)" 
             ELSE "Воскресенье"
-            END AS День,
+            END AS Запись,
 	   CAST(time / 2 AS STRING) || ':' || IIF(time % 2 = 0, '00', '30') AS Время,
 	   name || ' ' || surname AS Пациент,
 	   IIF(sex = 1, 'Мужчина', 'Женщина') AS Пол,
