@@ -57,14 +57,18 @@ class Export:
 
 
     # Вывод выбранных ячеек
-    def execute_read_query(self, *args, excel_query="", query_from_file="", query_file_path=""):
+    def execute_read_query(self, id, *args, excel_query="", query_from_file="", query_file_path=""):
 
         cursor = self.connection.cursor()
         result = None
 
         if (query_from_file):
             with open(query_file_path) as f:
+
                 excel_query = f.read()
+
+                if "{" in excel_query:
+                    excel_query = excel_query.format(id)
 
                 if (__name__ == '__main__'):
                     print("2. Excel query: \n", excel_query, "\n")
@@ -129,21 +133,31 @@ class Export:
             worksheet.set_column(i, i, column_widthes[i])
         writer.save()
 
+    def correctQuery(query, id):
+        query.format(id)
 
     
     # Конечная функция
-    def excelFromQuery(self, *args, excel_query="", query_from_file=False, query_file_path="", column_names=column_names, excel_file_path="./excel_files"):
+    def excelFromQuery(self, *args, id, excel_query="", query_from_file=False, query_file_path="", column_names=column_names, excel_file_path="./excel_files"):
+
 
         # Таблица выбранных данных из БД
-        table = self.execute_read_query(excel_query = excel_query, 
+        table = self.execute_read_query(id=id, excel_query = excel_query, 
                                         query_from_file = query_from_file, 
                                         query_file_path = query_file_path)
 
         # DataFrame из table:
         df = self.dataFrame_create(table=table, column_names=column_names)
+        print(df)
 
-        # Создание файла
-        self.excelFile_create(df, excel_file_path)
+        # Если датасет пустой
+        if not df.empty:
+            # Создание файла
+            self.excelFile_create(df, excel_file_path)
+        else:
+            writer = pd.ExcelWriter(excel_file_path + '/timetable.xlsx', engine='xlsxwriter')
+            df.to_excel(writer, sheet_name='Empty timetable', index=False)
+            writer.save()
 
 
 
@@ -163,16 +177,15 @@ if __name__ == '__main__':
     # Создаём экземпляр 
     exporter = Export(path)
     
-    '''
+    
     # Экспорт запроса в Эксель 
-    exporter.excelFromQuery(query_from_file = True, 
+    exporter.excelFromQuery(id=5, query_from_file = True, 
                             query_file_path = query_file_path, 
                             excel_file_path = excel_file_path)
-    '''
+    
     # Тот же результат, но запрос вбит вручную
     '''
-    excel_query = """
-        SELECT  CASE 
+    SELECT  CASE 
                 WHEN strftime('%w', appointments.date) = '1' THEN appointments.date || " (Понедельник)"
                 WHEN strftime('%w', appointments.date) = '2' THEN appointments.date || " (Вторник)" 
                 WHEN strftime('%w', appointments.date) = '3' THEN appointments.date || " (Среда)" 
@@ -189,12 +202,11 @@ if __name__ == '__main__':
         number AS Номер,
         polis AS Полис
         FROM appointments INNER JOIN users ON appointments.patient = users.id
-        WHERE patient IS NOT NULL
-    """
-    exporter.excelFromQuery(excel_query = excel_query)
+        WHERE (patient IS NOT NULL) AND (doctor = {0}) AND (julianday('now') - julianday(appointments.date) <= 0)
     '''
+    
 
-
+    '''
     # Аналогично можно делать все шаги отдельно, а не одной функцией excelFromQuery
     
     # Таблица выбранных данных из БД
@@ -204,6 +216,7 @@ if __name__ == '__main__':
     # DataFrame из table:
     df = exporter.dataFrame_create(table=table, column_names = exporter.column_names)
 
+    print(df)
     # Создание файла
     exporter.excelFile_create(df, excel_file_path)
-    
+    '''
