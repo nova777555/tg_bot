@@ -18,7 +18,7 @@ async def send_notifications():
         await bot.send_message(data[3], text = f'Напоминаем о завтрашнем приеме к {doctor[0]} ({doctor[1]}) в {h}:{m}')
 
 async def scheduler():
-    NOTIFICATION_TIME = "17:00"
+    NOTIFICATION_TIME = "12:06"
     aioschedule.every().day.at(NOTIFICATION_TIME).do(send_notifications)
     while True:
         await aioschedule.run_pending()
