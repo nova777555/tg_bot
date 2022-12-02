@@ -14,7 +14,7 @@ def db_load():
 #Создание таблицы с окнами. Аргумент а - список по количеству докторов семи списков(дни недели) 
 #по два числа - начало рабочего дня и окончание (одна единица = 30 минут), если день нерабочий, ставим -1
 #Так, например, запись расписания для одного врача может выглядеть как
-#[[[18,31],[-1,-1],[18,31],[-1,-1],[18,31],[-1,-1],[-1,-1]]],
+#[[[18,31],[-1,-1],[18,31],[-1,-1],[18,31],[-1,-1],[-1,-1]], [тут список с другим врачом]],
 #которая означает рабочее время: пн, ср, пт 9:00-16:00
 def new_appointments_timetable(a):
     translate_dow = {
@@ -137,6 +137,13 @@ def get_doctors_id():
     base = sq.connect('bd.db')
     cur = base.cursor()
     cur.execute(f'SELECT tg_id FROM doctors')
+    return list(cur.fetchall())
+
+#Получение списка telegram id докторов
+def get_doctor_tgid(tg_id):
+    base = sq.connect('bd.db')
+    cur = base.cursor()
+    cur.execute(f'SELECT id FROM doctors WHERE tg_id = {tg_id}')
     return list(cur.fetchall())
 
 #Получение записи по id
