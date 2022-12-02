@@ -14,6 +14,9 @@ main_h.register_handlers_menu(dp)
 from handlers import forSasha
 forSasha.register_handlers_forsasha(dp)
 
+
+
+
 #Выполнение при старте бота
 async def on_start(_):
     print('Bot is online')
