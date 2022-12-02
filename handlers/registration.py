@@ -9,6 +9,7 @@ from data_base import db_scripts
 from handlers import main_h
 import emoji
 import re
+import datetime
 
 #Класс состояний - последовательность регистрации
 class FSMregistration(StatesGroup):
@@ -20,14 +21,16 @@ class FSMregistration(StatesGroup):
     number = State()
 
 #Начало регистрации - приветствие
-async def command_start(message : types.Message):
+async def command_start(message : types.Message, state : FSMContext):
     if len(db_scripts.find_user(message.from_user.id)) == 1:
         await main_h.FSMmain.main_menu.set()
+        async with state.proxy() as data:
+            data['user_id'] = message.from_user.id
         if str(message.from_user.id) in [str(a[0]) for a in list(db_scripts.get_doctors_id())]:
-            await bot.send_message(message.from_user.id, 'Что умеет давнный бот? \n По первой кнопке вы можете записаться к врачу в удобный для вас день и подходящее время. \n При этом, если вы не значете, к какому специалисту обратиться - бот сможет вам помочь: достаточно будет выбрать соответствующую кнопку и перечислить свои жалобы \n \n Также по кнопке \'Мои записи\' вы сможете ознакомиться с вашими совершенными записями, по кнопке \'Связь с дежурным врачом\' вы сможете получить его контакт и позвонить в случае необходимости \n Также вы можете не пользоваться кнопками и написать ваш запрос вручную боту, находясь в главном меню, например \'Запишите меня к терапевту на ближайшее время\''
+            await bot.send_message(message.from_user.id, 'Что умеет данный бот? \n По первой кнопке вы можете записаться к врачу в удобный для вас день и подходящее время. \n При этом, если вы не значете, к какому специалисту обратиться - бот сможет вам помочь: достаточно будет выбрать соответствующую кнопку и перечислить свои жалобы \n \n Также по кнопке \'Мои записи\' вы сможете ознакомиться с вашими совершенными записями, по кнопке \'Связь с дежурным врачом\' вы сможете получить его контакт и позвонить в случае необходимости \n Также вы можете не пользоваться кнопками и написать ваш запрос вручную боту, находясь в главном меню, например \'Запишите меня к терапевту 12.12.2022\''
             ,reply_markup = kb_main_menu_admin)
         else:
-            await bot.send_message(message.from_user.id, 'Что умеет давнный бот? \n По первой кнопке вы можете записаться к врачу в удобный для вас день и подходящее время. \n При этом, если вы не значете, к какому специалисту обратиться - бот сможет вам помочь: достаточно будет выбрать соответствующую кнопку и перечислить свои жалобы \n \n Также по кнопке \'Мои записи\' вы сможете ознакомиться с вашими совершенными записями, по кнопке \'Связь с дежурным врачом\' вы сможете получить его контакт и позвонить в случае необходимости \n Также вы можете не пользоваться кнопками и написать ваш запрос вручную боту, находясь в главном меню, например \'Запишите меня к терапевту на ближайшее время\''
+            await bot.send_message(message.from_user.id, 'Что умеет данный бот? \n По первой кнопке вы можете записаться к врачу в удобный для вас день и подходящее время. \n При этом, если вы не значете, к какому специалисту обратиться - бот сможет вам помочь: достаточно будет выбрать соответствующую кнопку и перечислить свои жалобы \n \n Также по кнопке \'Мои записи\' вы сможете ознакомиться с вашими совершенными записями, по кнопке \'Связь с дежурным врачом\' вы сможете получить его контакт и позвонить в случае необходимости \n Также вы можете не пользоваться кнопками и написать ваш запрос вручную боту, находясь в главном меню, например \'Запишите меня к терапевту 12.12.2022\''
             ,reply_markup = kb_main_menu)
     else: 
         await FSMregistration.name.set()
@@ -68,26 +71,38 @@ async def take_sex(message: types.Message, state: FSMContext):
         await FSMregistration.next()
         await bot.send_message(message.from_user.id,'Введите дату рождения в формате DD.MM.YYYY:')
 
+#Проверка введенной даты
+def is_ok_date(date):
+  if bool(re.fullmatch('\d{2}.\d{2}.\d{4}',date)):
+    today = datetime.date.today()
+    date = [int(i) for i in date.split('.')]
+    try:
+      return datetime.date(*date[::-1]) < today 
+    except: return False
+  return False
+
 #Получаем дату рождения
 async def take_birthday(message: types.Message, state: FSMContext):
-    flag = False
-    async with state.proxy() as data:
-        d = message.text.split('.')
-        data['birthday'] = f'{d[2]}-{d[1]}-{d[0]}'
-        flag = True
+    flag = is_ok_date(message.text)
     if flag:
+        async with state.proxy() as data:
+            d = message.text.split('.')
+            data['birthday'] = f'{d[2]}-{d[1]}-{d[0]}'
         await FSMregistration.next()
         await bot.send_message(message.from_user.id,'Введите номер полиса:')
+    else:
+        await bot.send_message(message.from_user.id,'Проверьте введенные данные и повторите ввод')
 
 #Получаем номер полиса
 async def take_polis(message: types.Message, state: FSMContext):
-    flag = False
-    async with state.proxy() as data:
-        data['polis'] = message.text
-        flag = True
+    flag = bool(re.fullmatch('\d{16}',message.text))
     if flag:
+        async with state.proxy() as data:
+            data['polis'] = message.text
         await FSMregistration.next()
         await bot.send_message(message.from_user.id,'Поделитесь контактом для завершения регистрации:',reply_markup = kb_reg)
+    else:
+        await bot.send_message(message.from_user.id,'Проверьте введенные данные и повторите ввод')
 
 #Получаем номер телефона и id пользователя
 async def take_phone_number(message: types.Contact, state: FSMContext):
@@ -99,17 +114,19 @@ async def take_phone_number(message: types.Contact, state: FSMContext):
         await db_scripts.add_user(state)
         await state.finish()
         await main_h.FSMmain.main_menu.set()
+        async with state.proxy() as data:
+            data['user_id'] = str(message.from_user.id)
         await bot.send_message(message.from_user.id,'Успешное завершение, благодарим за регистрацию!')
         if str(message.from_user.id) in [str(a[0]) for a in list(db_scripts.get_doctors_id())]:
-            await bot.send_message(message.from_user.id, 'Что умеет давнный бот? \n По первой кнопке вы можете записаться к врачу в удобный для вас день и подходящее время. \n При этом, если вы не значете, к какому специалисту обратиться - бот сможет вам помочь: достаточно будет выбрать соответствующую кнопку и перечислить свои жалобы \n \n Также по кнопке \'Мои записи\' вы сможете ознакомиться с вашими совершенными записями, по кнопке \'Связь с дежурным врачом\' вы сможете получить его контакт и позвонить в случае необходимости \n Также вы можете не пользоваться кнопками и написать ваш запрос вручную боту, находясь в главном меню, например \'Запишите меня к терапевту на ближайшее время\''
+            await bot.send_message(message.from_user.id, 'Что умеет данный бот? \n По первой кнопке вы можете записаться к врачу в удобный для вас день и подходящее время. \n При этом, если вы не значете, к какому специалисту обратиться - бот сможет вам помочь: достаточно будет выбрать соответствующую кнопку и перечислить свои жалобы \n \n Также по кнопке \'Мои записи\' вы сможете ознакомиться с вашими совершенными записями, по кнопке \'Связь с дежурным врачом\' вы сможете получить его контакт и позвонить в случае необходимости \n Также вы можете не пользоваться кнопками и написать ваш запрос вручную боту, находясь в главном меню, например \'Запишите меня к терапевту на ближайшее время\''
             ,reply_markup = kb_main_menu_admin)
         else:
-            await bot.send_message(message.from_user.id, 'Что умеет давнный бот? \n По первой кнопке вы можете записаться к врачу в удобный для вас день и подходящее время. \n При этом, если вы не значете, к какому специалисту обратиться - бот сможет вам помочь: достаточно будет выбрать соответствующую кнопку и перечислить свои жалобы \n \n Также по кнопке \'Мои записи\' вы сможете ознакомиться с вашими совершенными записями, по кнопке \'Связь с дежурным врачом\' вы сможете получить его контакт и позвонить в случае необходимости \n Также вы можете не пользоваться кнопками и написать ваш запрос вручную боту, находясь в главном меню, например \'Запишите меня к терапевту на ближайшее время\''
+            await bot.send_message(message.from_user.id, 'Что умеет данный бот? \n По первой кнопке вы можете записаться к врачу в удобный для вас день и подходящее время. \n При этом, если вы не значете, к какому специалисту обратиться - бот сможет вам помочь: достаточно будет выбрать соответствующую кнопку и перечислить свои жалобы \n \n Также по кнопке \'Мои записи\' вы сможете ознакомиться с вашими совершенными записями, по кнопке \'Связь с дежурным врачом\' вы сможете получить его контакт и позвонить в случае необходимости \n Также вы можете не пользоваться кнопками и написать ваш запрос вручную боту, находясь в главном меню, например \'Запишите меня к терапевту на ближайшее время\''
             ,reply_markup = kb_main_menu)
 
 #Регистрация обработчиков (хендлеров)
 def register_handlers_registration(dp : Dispatcher):
-    dp.register_message_handler(command_start, commands = ['start'], state = None)
+    dp.register_message_handler(command_start, commands = ['start'], state = '*')
     dp.register_message_handler(take_name, state = FSMregistration.name)
     dp.register_message_handler(take_surname, state = FSMregistration.surname)
     dp.register_message_handler(take_polis, state = FSMregistration.snils)

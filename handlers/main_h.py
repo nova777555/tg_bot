@@ -11,6 +11,8 @@ from keyboards.options import make_kb_option
 from keyboards.main_menu_admin import kb_main_menu_admin
 from aiogram.dispatcher.filters.state import State, StatesGroup
 import datetime
+from data_base.excel import Export
+
 
 #Количество страниц с выбором дней
 MAX_PAGE = 3
@@ -25,7 +27,6 @@ class FSMmain(StatesGroup):
     choose_day = State()
     choose_time = State()
     symptoms = State()
-    command = State()
     my_appointments = State()
     options = State()
     sos = State()
@@ -117,53 +118,76 @@ async def back_to_new_appointment_bt(message: types.Message):
 async def back_to_choose_doctor_by_youself(callback: types.CallbackQuery):
     await FSMmain.choose_doctor_by_yourself.set()
     await callback.message.delete()
-    await callback.message.answer('Выберете нужного врача', reply_markup = kb_new_appointment2)
+    await callback.message.answer('Выберите нужного врача', reply_markup = kb_new_appointment2)
     await callback.answer()
 
 #Назад к списку дней
 async def back_to_choose_day(callback: types.CallbackQuery):
     await FSMmain.choose_day.set()
     await callback.message.delete()
-    await callback.message.answer(f'Выберете удобный день для посещения (Страница 1 из {MAX_PAGE})', reply_markup = choose_day_kb.make_keyBoard(int(callback.data.split('_')[1]),1))
+    await callback.message.answer(f'Выберите удобный день для посещения (Страница 1 из {MAX_PAGE})', reply_markup = choose_day_kb.make_keyBoard(int(callback.data.split('_')[1]),1))
     await callback.answer()
 
 #Назад к списку окон
 async def back_to_choose_time(message: types.Message, state: FSMContext):
     await FSMmain.choose_time.set()
     async with state.proxy() as data:
-        await bot.send_message(message.from_user.id, text = 'Выберете удобное время для посещения ' + data['date'].split('-')[2] + '.' + data['date'].split('-')[1],
+        await bot.send_message(message.from_user.id, text = 'Выберите удобное время для посещения ' + data['date'].split('-')[2] + '.' + data['date'].split('-')[1],
          reply_markup = choose_time_kb.make_keyBoard(data['id'],data['date']))
 
 #Выбор дня посещения
-async def choose_day(callback: types.CallbackQuery):
+async def choose_day(callback, state : FSMContext, s = 0):
+    tg_id = 0
+    flag = False
+    async with state.proxy() as data:
+        tg_id = data['user_id']
+    if s == 0:
+        flag = True
+        s = callback.data
+        await callback.message.delete()
     await FSMmain.choose_day.set()
     page = 1
-    await callback.message.delete()
-    await callback.message.answer(f'Выберете удобный день для посещения (Страница {page} из {MAX_PAGE})', reply_markup = choose_day_kb.make_keyBoard(int(callback.data.split('_')[2]),page))
-    await callback.answer()
+    await bot.send_message(tg_id, text = f'Выберите удобный день для посещения (Страница {page} из {MAX_PAGE})', reply_markup = choose_day_kb.make_keyBoard(int(s.split('_')[2]),page))
+    if flag:
+        await callback.answer()
 
 #Выбор времени посещения
-async def choose_time(callback: types.CallbackQuery):
+async def choose_time(callback, state : FSMContext, s=0):
+    flag = False
+    if s == 0:
+        await callback.message.delete()
+        s = callback.data
+        flag = True
+    tg_id = 0
+    async with state.proxy() as data:
+        tg_id = data['user_id']
     await FSMmain.choose_time.set()
-    await callback.message.delete()
-    await callback.message.answer('Выберете удобное время для посещения ' + callback.data.split('_')[2].split('-')[2]+'.'+callback.data.split('_')[2].split('-')[1],
-     reply_markup = choose_time_kb.make_keyBoard(callback.data.split('_')[3],callback.data.split('_')[2]))
-    await callback.answer()
+    await bot.send_message(tg_id, text = 'Выберете удобное время для посещения ' + s.split('_')[2].split('-')[2]+'.'+s.split('_')[2].split('-')[1],
+     reply_markup = choose_time_kb.make_keyBoard(s.split('_')[3],s.split('_')[2]))
+    if flag:
+        await callback.answer()
 
 #Подтверждение записи
-async def confirm_appointment(callback: types.CallbackQuery, state: FSMContext):
+async def confirm_appointment(callback, state: FSMContext, s = 0):
     await FSMmain.confirm.set()
-    doctor = list(*db_scripts.get_info_doctor(callback.data.split('_')[2]))
-    date = callback.data.split('_')[3].split('-')
-    time = callback.data.split('_')[4]
+    flag = False
+    if s == 0:
+        flag = True
+        await callback.message.delete()
+        s = callback.data
+    doctor = list(*db_scripts.get_info_doctor(s.split('_')[2]))
+    date = s.split('_')[3].split('-')
+    time = s.split('_')[4]
     h,m = time_to_h_m(time)
+    tg_id = 0
     async with state.proxy() as data:
-        data['id'] = callback.data.split('_')[2]
-        data['date'] = callback.data.split('_')[3]
-        data['time'] = callback.data.split('_')[4]
-    await callback.message.delete()
-    await callback.message.answer(f'Подтвердите запись: \n Запись на прием к {doctor[0]} ({doctor[1]}), {date[2]}.{date[1]} в {h}:{m}', reply_markup = confirm.kb_confirm)
-    await callback.answer()
+        data['id'] = s.split('_')[2]
+        data['date'] = s.split('_')[3]
+        data['time'] = s.split('_')[4]
+        tg_id = data['user_id']
+    await bot.send_message(tg_id, text = f'Подтвердите запись: \n Запись на прием к {doctor[0]} ({doctor[1]}), {date[2]}.{date[1]} в {h}:{m}', reply_markup = confirm.kb_confirm)
+    if flag:
+        await callback.answer()
 
 #Смена страницы дней посещения
 async def change_page_choosing_day(callback: types.CallbackQuery):
@@ -213,9 +237,16 @@ async def notification_turn_on(message: types.Message):
 #Получение расписания для врача
 async def get_timetable(message: types.Message):
     await FSMmain.main_menu.set()
+    path = "./bd.db"
+    query_file_path = "./requests/first_request"
+    excel_file_path = "./"
+    exporter = Export(path)
+    id = db_scripts.get_doctor_tgid(message.from_user.id)[0][0]
+    exporter.excelFromQuery(id=id, query_from_file = True, 
+                            query_file_path = query_file_path, 
+                            excel_file_path = excel_file_path)
+    await message.reply_document(open('./timetable.xlsx', 'rb'), reply_markup = kb_main_menu_admin)
     await message.delete()
-    await bot.send_message(message.from_user.id, text = 'Ваше распсиание:', reply_markup = kb_main_menu_admin)
-
 #Связь с дежурным врачом
 async def sos(message: types.Message):
     await FSMmain.sos.set()
@@ -224,16 +255,11 @@ async def sos(message: types.Message):
     await bot.send_contact(message.from_user.id, '+79025102007', 'Горшокова', 'Ирина')
 
 #Получение симптомов от пользователя, начало подбора доктора
-async def choose_doctor_by_bot(message: types.Message):
+async def choose_doctor_by_bot(message: types.Message, state:FSMContext):
     await FSMmain.symptoms.set()
     await message.delete()
-    await bot.send_message(message.from_user.id, text = 'Введите, пожалуйста, через запятую ваши жалобы:', reply_markup = appointments_kb.kb_appointment)
-
-#Сохранение введенных симптомов, их обработка
-async def take_symptoms(message: types.Message):
-    # await FSMmain.choose_doctor_by_bot.set()
-    await message.delete()
-    print(message.text)
+    await bot.send_message(message.from_user.id, text = 'Введите, пожалуйста, через пробел ваши жалобы:', reply_markup = appointments_kb.kb_appointment)
+    
 
 #Регистрация хендлеров
 def register_handlers_menu(dp : Dispatcher):
@@ -262,5 +288,4 @@ def register_handlers_menu(dp : Dispatcher):
     dp.register_message_handler(sos, lambda message: message.text == 'Связь с дежурным врачом ' + emoji.emojize(":phone:", language='alias'), state = FSMmain.main_menu)
     dp.register_message_handler(back_to_main_menu, lambda message: message.text == 'Назад' + emoji.emojize(":arrow_left:", language='alias'), state = FSMmain.sos)
     dp.register_message_handler(back_to_new_appointment_bt, lambda message: message.text == 'Назад' + emoji.emojize(":arrow_left:", language='alias'), state = FSMmain.symptoms)
-    dp.register_message_handler(take_symptoms, state = FSMmain.symptoms)
 
